@@ -24,7 +24,9 @@ The interface uses a dark career-dashboard visual system with animated aurora li
 - Track applications across `To apply`, `Applied`, `Interview` and `Offer`
 - Open a detailed job panel before visiting the original source
 - Persist saved roles and tracker stages in browser storage
-- Browse an indexed snapshot of direct-source internship listings
+- Refresh the internship feed automatically every eight hours
+- Deduplicate listings and remove closed, invalid or 30-day-old roles
+- Fall back to the last bundled snapshot if a live refresh is unavailable
 - Use the full workflow on desktop, tablet and mobile
 - Respect the operating system's reduced-motion preference
 
@@ -48,6 +50,7 @@ flowchart LR
 | Components | Radix UI, Shadcn-style primitives, Lucide icons |
 | Feedback | Sonner notifications |
 | State | React hooks and browser `localStorage` |
+| Automation | Scheduled GitHub Actions feed refresh |
 | Build | Vite 8, Vinext build pipeline |
 | Hosting | Cloudflare Workers-compatible Sites deployment |
 
@@ -93,6 +96,7 @@ npm run start
 | `npm run start` | Run the built application |
 | `npm run lint` | Run ESLint checks |
 | `npm test` | Build and execute the included tests |
+| `npm run sync:jobs` | Refresh, deduplicate and prune the internship feed |
 | `npm run install:ci` | Install the locked dependency set in the hosted build environment |
 
 ## Project Structure
@@ -105,12 +109,14 @@ intern-wire-plus/
 │   └── page.tsx           # Discovery, saved roles, details and tracker UI
 ├── components/ui/         # Reusable accessible interface primitives
 ├── hooks/                 # Shared React hooks
-├── lib/                   # Utility helpers
+├── lib/                   # Utility and feed-normalization helpers
 ├── public/
-│   ├── internships.json   # Internship feed snapshot
+│   ├── internships.json   # Last validated internship feed snapshot
 │   └── favicon.svg
-├── tests/                 # Rendering and component checks
+├── scripts/               # Build helpers and feed sync command
+├── tests/                 # Rendering, component and feed-policy checks
 ├── worker/                # Cloudflare-compatible worker entry point
+├── .github/workflows/     # CI and eight-hour feed automation
 ├── package.json
 └── vite.config.ts
 ```
@@ -129,11 +135,18 @@ type Job = {
   url: string;
   posted_at?: string | null;
   scraped_at?: string | null;
+  expires_at?: string | null;
   snippet?: string | null;
 };
 ```
 
-The current deployment reads `public/internships.json`. Saved job IDs and tracker stages are device-local and do not leave the browser.
+### Automatic feed lifecycle
+
+The `Refresh internship feed` workflow runs every eight hours and can also be started manually. It downloads the current public feed from The Intern Wire, validates the payload, removes malformed and explicitly closed records, deduplicates tracking URLs, and drops listings after a 30-day active window. A minimum-result safety check prevents a broken upstream response from wiping the existing feed.
+
+The production Worker serves the refreshed file from this repository and re-applies the expiry rules on every response. If the live file cannot be reached, it uses the last bundled snapshot. This means an expired listing disappears at request time even if a scheduled run is delayed. An external source can close a role before its age limit without exposing a machine-readable status, so applicants should still confirm availability on the original page.
+
+Saved job IDs and tracker stages are device-local and do not leave the browser.
 
 ## Design System
 
@@ -150,7 +163,6 @@ The project builds to a Cloudflare Workers-compatible artifact. The included `.o
 
 ## Roadmap
 
-- Connect a scheduled scraper or API for automatic feed refreshes
 - Add server-backed user accounts and cross-device saved roles
 - Add eligibility filters for graduation year and degree
 - Add notes, deadlines and reminders to tracked applications
