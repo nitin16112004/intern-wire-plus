@@ -1,6 +1,12 @@
 name: Refresh internship feed
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sync-internships.yml"
+      - "lib/internship-feed.mjs"
+      - "scripts/sync-internships.mjs"
   schedule:
     - cron: "17 */8 * * *"
   workflow_dispatch:
