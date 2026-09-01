@@ -1,7 +1,18 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "intern-wire-plus",
   "version": "0.1.0",
+  "description": "A polished internship discovery, shortlist, and application tracking workspace.",
   "private": true,
+  "license": "MIT",
+  "author": "Nitin Kumar",
+  "homepage": "https://intern-wire-plus.patelpavan7757.chatgpt.site",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nitin16112004/intern-wire-plus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nitin16112004/intern-wire-plus/issues"
+  },
   "engines": {
     "node": ">=22.13.0"
   },
