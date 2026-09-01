@@ -20,6 +20,7 @@ type Job = {
   url: string;
   posted_at?: string | null;
   scraped_at?: string | null;
+  expires_at?: string | null;
   snippet?: string | null;
 };
 
@@ -28,6 +29,11 @@ type Feed = {
   total: number;
   by_source: Record<string, number>;
   last_scraped?: string | null;
+  synced_at?: string | null;
+  next_refresh_at?: string | null;
+  refresh_interval_hours?: number;
+  max_age_days?: number;
+  served_from?: "github-live" | "bundled-fallback" | string;
 };
 
 type TrackerStatus = "To apply" | "Applied" | "Interview" | "Offer";
@@ -124,13 +130,23 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    fetch("/internships.json")
-      .then((response) => {
-        if (!response.ok) throw new Error("Could not load internships");
-        return response.json() as Promise<Feed>;
-      })
-      .then(setFeed)
-      .catch(() => setLoadError(true));
+    let active = true;
+    const loadFeed = async () => {
+      for (const path of ["/api/internships", "/internships.json"]) {
+        try {
+          const response = await fetch(path);
+          if (!response.ok) continue;
+          const nextFeed = await response.json() as Feed;
+          if (!Array.isArray(nextFeed.items)) continue;
+          if (active) setFeed(nextFeed);
+          return;
+        } catch {
+          // Try the bundled snapshot when the live endpoint is unavailable.
+        }
+      }
+      if (active) setLoadError(true);
+    };
+    void loadFeed();
 
     const hydrationTimer = window.setTimeout(() => {
       setSaved(safeRead<string[]>(SAVED_KEY, []));
@@ -138,7 +154,10 @@ export default function Home() {
       setHydrated(true);
     }, 0);
 
-    return () => window.clearTimeout(hydrationTimer);
+    return () => {
+      active = false;
+      window.clearTimeout(hydrationTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -229,7 +248,7 @@ export default function Home() {
           </button>
           <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 sm:flex">
             <span className="live-dot size-2 rounded-full bg-emerald-400" />
-            Snapshot updated {feed?.last_scraped ? relativeDate(feed.last_scraped) : "recently"}
+            Auto-sync every {feed?.refresh_interval_hours ?? 8}h · updated {feed?.last_scraped ? relativeDate(feed.last_scraped) : "recently"}
           </div>
           <Button size="sm" className="glow-button rounded-full" onClick={() => setActiveTab("saved")}><Bookmark className="size-4" /> <span className="hidden sm:inline">Saved</span>{saved.length > 0 ? ` ${saved.length}` : ""}</Button>
         </div>
@@ -295,7 +314,7 @@ export default function Home() {
 
             <div className="mb-4 flex items-center justify-between gap-3">
               <div><h2 className="text-xl font-extrabold tracking-tight">Recommended openings</h2><p className="mt-1 text-sm text-muted-foreground">{filteredJobs.length.toLocaleString("en-IN")} matching opportunities</p></div>
-              <div className="hidden rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground sm:block">Direct links only · no sign-up</div>
+              <div className="hidden rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs font-medium text-emerald-300 sm:block">Live feed · stale roles auto-removed after {feed?.max_age_days ?? 30} days</div>
             </div>
 
             {loadError ? <EmptyState title="Listings could not load" description="Please refresh the page and try again." /> : !feed ? <LoadingGrid /> : filteredJobs.length === 0 ? <EmptyState title="No exact matches" description="Try a broader keyword or reset one of the filters." action={<Button variant="outline" onClick={clearFilters}>Reset filters</Button>} /> : (
