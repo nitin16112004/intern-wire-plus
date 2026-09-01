@@ -132,9 +132,13 @@ export default function Home() {
       .then(setFeed)
       .catch(() => setLoadError(true));
 
-    setSaved(safeRead<string[]>(SAVED_KEY, []));
-    setTracked(safeRead<Record<string, TrackerStatus>>(TRACKED_KEY, {}));
-    setHydrated(true);
+    const hydrationTimer = window.setTimeout(() => {
+      setSaved(safeRead<string[]>(SAVED_KEY, []));
+      setTracked(safeRead<Record<string, TrackerStatus>>(TRACKED_KEY, {}));
+      setHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(hydrationTimer);
   }, []);
 
   useEffect(() => {
@@ -145,12 +149,14 @@ export default function Home() {
     if (hydrated) localStorage.setItem(TRACKED_KEY, JSON.stringify(tracked));
   }, [tracked, hydrated]);
 
-  useEffect(() => setVisibleCount(PAGE_SIZE), [query, source, category, workMode, roleType, freshness, sort]);
-
   const filteredJobs = useMemo(() => {
     if (!feed) return [];
     const needle = query.trim().toLowerCase();
-    const cutoff = freshness === "all" ? null : Date.now() - Number(freshness) * 86_400_000;
+    const referenceTime = feed.items.reduce((latest, job) => {
+      const timestamp = new Date(job.posted_at ?? job.scraped_at ?? 0).getTime();
+      return Number.isFinite(timestamp) ? Math.max(latest, timestamp) : latest;
+    }, new Date(feed.last_scraped ?? 0).getTime() || 0);
+    const cutoff = freshness === "all" || !referenceTime ? null : referenceTime - Number(freshness) * 86_400_000;
     const rows = feed.items.filter((job) => {
       if (source !== "all" && job.source !== source) return false;
       if (category !== "all" && categoryFor(job.title) !== category) return false;
@@ -203,6 +209,12 @@ export default function Home() {
     setRoleType("Internship");
     setFreshness("30");
     setSort("newest");
+    setVisibleCount(PAGE_SIZE);
+  }
+
+  function updateFilter(setter: (value: string) => void, value: string) {
+    setter(value);
+    setVisibleCount(PAGE_SIZE);
   }
 
   const activeFilterCount = [source !== "all", category !== "all", workMode !== "all", roleType !== "Internship", freshness !== "30"].filter(Boolean).length;
@@ -263,19 +275,19 @@ export default function Home() {
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(280px,1fr)_repeat(5,auto)]">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search role, company or city" className="search-field h-11 rounded-xl border border-white/10 bg-white/5 pl-10 shadow-none focus-visible:ring-cyan-300/25" />
-                  {query && <button onClick={() => setQuery("")} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>}
+                  <Input value={query} onChange={(event) => updateFilter(setQuery, event.target.value)} placeholder="Search role, company or city" className="search-field h-11 rounded-xl border border-white/10 bg-white/5 pl-10 shadow-none focus-visible:ring-cyan-300/25" />
+                  {query && <button onClick={() => updateFilter(setQuery, "")} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>}
                 </div>
-                <FilterSelect value={roleType} onChange={setRoleType} label="Role type" options={["all", "Internship", "Fresher"]} />
-                <FilterSelect value={category} onChange={setCategory} label="Category" options={["all", ...categories]} />
-                <FilterSelect value={workMode} onChange={setWorkMode} label="Work mode" options={["all", "Remote", "Hybrid", "On-site"]} />
-                <FilterSelect value={freshness} onChange={setFreshness} label="Posted" options={["1", "7", "30", "all"]} display={{ "1": "Today", "7": "7 days", "30": "30 days", all: "Any time" }} />
-                <FilterSelect value={sort} onChange={setSort} label="Sort" options={["newest", "company", "role"]} display={{ newest: "Newest", company: "Company", role: "Role A–Z" }} />
+                <FilterSelect value={roleType} onChange={(value) => updateFilter(setRoleType, value)} label="Role type" options={["all", "Internship", "Fresher"]} />
+                <FilterSelect value={category} onChange={(value) => updateFilter(setCategory, value)} label="Category" options={["all", ...categories]} />
+                <FilterSelect value={workMode} onChange={(value) => updateFilter(setWorkMode, value)} label="Work mode" options={["all", "Remote", "Hybrid", "On-site"]} />
+                <FilterSelect value={freshness} onChange={(value) => updateFilter(setFreshness, value)} label="Posted" options={["1", "7", "30", "all"]} display={{ "1": "Today", "7": "7 days", "30": "30 days", all: "Any time" }} />
+                <FilterSelect value={sort} onChange={(value) => updateFilter(setSort, value)} label="Sort" options={["newest", "company", "role"]} display={{ newest: "Newest", company: "Company", role: "Role A–Z" }} />
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
                 <span className="mr-1 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><Filter className="size-3.5" /> Source</span>
                 {[["all", "All sources"], ["linkedin", "LinkedIn jobs"], ["linkedin-post", "LinkedIn posts"], ["manual", "Editor picks"], ["twitter", "X posts"]].map(([value, label]) => (
-                  <button key={value} onClick={() => setSource(value)} className={`source-chip rounded-full border px-3 py-1.5 text-xs font-semibold transition ${source === value ? "is-active border-cyan-300/30 bg-cyan-300/15 text-cyan-200" : "border-white/10 bg-white/[.03] text-muted-foreground hover:border-cyan-300/30 hover:text-white"}`}>{label}</button>
+                  <button key={value} onClick={() => updateFilter(setSource, value)} className={`source-chip rounded-full border px-3 py-1.5 text-xs font-semibold transition ${source === value ? "is-active border-cyan-300/30 bg-cyan-300/15 text-cyan-200" : "border-white/10 bg-white/[.03] text-muted-foreground hover:border-cyan-300/30 hover:text-white"}`}>{label}</button>
                 ))}
                 {(activeFilterCount > 0 || query) && <button onClick={clearFilters} className="ml-auto text-xs font-semibold text-primary hover:underline">Reset filters</button>}
               </div>
