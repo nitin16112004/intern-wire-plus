@@ -34,11 +34,24 @@ type Feed = {
   refresh_interval_hours?: number;
   max_age_days?: number;
   served_from?: "github-live" | "bundled-fallback" | string;
+  source_status?: Record<string, { status: "ok" | "stale" | "error"; fetched: number; retained: number }> | null;
 };
 
 type TrackerStatus = "To apply" | "Applied" | "Interview" | "Offer";
 
 const TRACKER_STATUSES: TrackerStatus[] = ["To apply", "Applied", "Interview", "Offer"];
+const SOURCE_ORDER = ["linkedin", "indeed", "naukri", "himalayas", "arbeitnow", "remotive", "linkedin-post", "manual", "twitter"];
+const SOURCE_LABELS: Record<string, string> = {
+  linkedin: "LinkedIn",
+  "linkedin-post": "LinkedIn post",
+  indeed: "Indeed",
+  naukri: "Naukri",
+  himalayas: "Himalayas",
+  arbeitnow: "Arbeitnow",
+  remotive: "Remotive",
+  manual: "Editor pick",
+  twitter: "X post",
+};
 const PAGE_SIZE = 24;
 const SAVED_KEY = "internwire-plus-saved";
 const TRACKED_KEY = "internwire-plus-tracked";
@@ -91,10 +104,7 @@ function relativeDate(value?: string | null) {
 }
 
 function sourceLabel(source: string) {
-  if (source === "manual") return "Editor pick";
-  if (source === "linkedin-post") return "LinkedIn post";
-  if (source === "twitter") return "X post";
-  return "LinkedIn job";
+  return SOURCE_LABELS[source] ?? source.replace(/[-_]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function companyInitials(company?: string | null) {
@@ -172,8 +182,8 @@ export default function Home() {
     if (!feed) return [];
     const needle = query.trim().toLowerCase();
     const referenceTime = feed.items.reduce((latest, job) => {
-      const timestamp = new Date(job.posted_at ?? job.scraped_at ?? 0).getTime();
-      return Number.isFinite(timestamp) ? Math.max(latest, timestamp) : latest;
+      const jobTime = new Date(job.posted_at ?? job.scraped_at ?? 0).getTime();
+      return Number.isFinite(jobTime) ? Math.max(latest, jobTime) : latest;
     }, new Date(feed.last_scraped ?? 0).getTime() || 0);
     const cutoff = freshness === "all" || !referenceTime ? null : referenceTime - Number(freshness) * 86_400_000;
     const rows = feed.items.filter((job) => {
@@ -207,6 +217,12 @@ export default function Home() {
   const savedJobs = saved.map((id) => jobsById.get(id)).filter(Boolean) as Job[];
   const trackedJobs = Object.keys(tracked).map((id) => jobsById.get(id)).filter(Boolean) as Job[];
   const categories = useMemo(() => Array.from(new Set((feed?.items ?? []).map((job) => categoryFor(job.title)))).sort(), [feed]);
+  const sources = useMemo(() => Object.keys(feed?.by_source ?? {}).sort((left, right) => {
+    const leftIndex = SOURCE_ORDER.indexOf(left);
+    const rightIndex = SOURCE_ORDER.indexOf(right);
+    return (leftIndex < 0 ? 99 : leftIndex) - (rightIndex < 0 ? 99 : rightIndex)
+      || sourceLabel(left).localeCompare(sourceLabel(right));
+  }), [feed]);
 
   function toggleSaved(job: Job) {
     const key = jobKey(job);
@@ -265,7 +281,7 @@ export default function Home() {
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">Discover verified openings, build a shortlist and move every application from idea to offer.</p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Button className="glow-button h-11 rounded-full px-5" onClick={() => document.getElementById("opportunities")?.scrollIntoView({ behavior: "smooth" })}>Explore opportunities <ArrowRight className="size-4" /></Button>
-              <div className="flex items-center gap-2 text-sm text-slate-400"><span className="flex -space-x-2"><span className="source-bubble bg-[#0a66c2]">in</span><span className="source-bubble bg-white text-slate-950">X</span><span className="source-bubble bg-orange-500"><Flame className="size-3" /></span></span> Direct source links</div>
+              <div className="flex items-center gap-2 text-sm text-slate-400"><span className="flex -space-x-2"><span className="source-bubble bg-[#0a66c2]">in</span><span className="source-bubble bg-[#2164f3]">i</span><span className="source-bubble bg-[#4a90e2]">N</span><span className="source-bubble bg-orange-500"><Flame className="size-3" /></span></span> LinkedIn, Indeed, Naukri + more</div>
             </div>
           </div>
           <CareerPulse roles={feed?.total ?? 0} saved={saved.length} tracked={trackedJobs} trackedState={tracked} />
@@ -305,7 +321,7 @@ export default function Home() {
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
                 <span className="mr-1 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><Filter className="size-3.5" /> Source</span>
-                {[["all", "All sources"], ["linkedin", "LinkedIn jobs"], ["linkedin-post", "LinkedIn posts"], ["manual", "Editor picks"], ["twitter", "X posts"]].map(([value, label]) => (
+                {[["all", "All sources"], ...sources.map((value) => [value, `${sourceLabel(value)} (${feed?.by_source[value] ?? 0})`])].map(([value, label]) => (
                   <button key={value} onClick={() => updateFilter(setSource, value)} className={`source-chip rounded-full border px-3 py-1.5 text-xs font-semibold transition ${source === value ? "is-active border-cyan-300/30 bg-cyan-300/15 text-cyan-200" : "border-white/10 bg-white/[.03] text-muted-foreground hover:border-cyan-300/30 hover:text-white"}`}>{label}</button>
                 ))}
                 {(activeFilterCount > 0 || query) && <button onClick={clearFilters} className="ml-auto text-xs font-semibold text-primary hover:underline">Reset filters</button>}
@@ -382,7 +398,7 @@ function JobCard({ job, saved, trackedStatus, onSave, onOpen, onTrack }: { job: 
     <div className="card-glow" aria-hidden="true" />
     <div className="relative flex items-start justify-between gap-4"><div className="company-mark grid size-12 shrink-0 place-items-center rounded-2xl border border-white/10 text-sm font-black text-white">{companyInitials(job.company)}</div><button onClick={onSave} aria-label={saved ? "Remove from saved" : "Save opportunity"} className={`grid size-9 place-items-center rounded-full border transition ${saved ? "border-cyan-300/25 bg-cyan-300/15 text-cyan-200" : "border-white/10 bg-white/[.03] text-muted-foreground hover:border-cyan-300/30 hover:text-cyan-200"}`}>{saved ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}</button></div>
     <button onClick={onOpen} className="relative mt-4 text-left"><h3 className="line-clamp-2 text-[1.08rem] font-extrabold leading-6 tracking-[-0.02em] text-white transition group-hover:text-cyan-200">{job.title}</h3><p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-muted-foreground"><Building2 className="size-3.5" /> {job.company || "Company not listed"}</p></button>
-    <div className="relative mt-4 flex flex-wrap gap-2"><Badge variant="secondary" className="border border-violet-400/15 bg-violet-400/10 text-violet-200">{categoryFor(job.title)}</Badge><Badge variant="outline"><MapPin className="size-3" /> {mode}</Badge>{job.source === "manual" && <Badge className="bg-orange-500 text-white">Editor pick</Badge>}</div>
+    <div className="relative mt-4 flex flex-wrap gap-2"><Badge variant="secondary" className="border border-violet-400/15 bg-violet-400/10 text-violet-200">{categoryFor(job.title)}</Badge><Badge variant="outline"><MapPin className="size-3" /> {mode}</Badge><Badge variant="outline" className="border-cyan-300/15 bg-cyan-300/5 text-cyan-200">{sourceLabel(job.source)}</Badge></div>
     <div className="relative mt-auto flex items-end justify-between gap-4 border-t border-border/70 pt-4"><div className="min-w-0"><p className="truncate text-xs text-muted-foreground">{job.location || "Location not listed"}</p><p className="mt-1 flex items-center gap-1 text-xs font-semibold text-emerald-300"><Clock3 className="size-3" /> {relativeDate(job.posted_at ?? job.scraped_at)}</p></div><div className="flex gap-2">{trackedStatus ? <Select value={trackedStatus} onValueChange={(value) => onTrack(value as TrackerStatus)}><SelectTrigger size="sm" className="max-w-[125px] rounded-full"><SelectValue /></SelectTrigger><SelectContent>{TRACKER_STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select> : <Button variant="outline" size="sm" className="rounded-full" onClick={() => onTrack("To apply")}>Track</Button>}<Button size="sm" className="glow-button rounded-full" onClick={onOpen}>View <ArrowUpRight className="size-3.5" /></Button></div></div>
   </article>;
 }
