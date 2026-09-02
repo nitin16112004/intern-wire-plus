@@ -6,7 +6,9 @@ on:
     paths:
       - ".github/workflows/sync-internships.yml"
       - "lib/internship-feed.mjs"
+      - "lib/job-sources.mjs"
       - "scripts/sync-internships.mjs"
+      - "tests/job-sources.test.mjs"
   schedule:
     - cron: "17 */8 * * *"
   workflow_dispatch:
@@ -37,7 +39,7 @@ jobs:
         run: npm run sync:jobs
 
       - name: Verify feed rules
-        run: node --test tests/feed-sync.test.mjs
+        run: node --test tests/feed-sync.test.mjs tests/job-sources.test.mjs
 
       - name: Commit refreshed data
         run: |
