@@ -37,3 +37,16 @@ test("deduplicates URLs and keeps the newest listing", () => {
 test("rejects malformed feed payloads", () => {
   assert.throws(() => normalizeAndPruneFeed({}), /items array/);
 });
+
+test("preserves multi-source health metadata", () => {
+  const feed = normalizeAndPruneFeed({
+    source_status: { indeed: { status: "ok", fetched: 12 } },
+    source_feed_urls: { indeed: "https://in.indeed.com/jobs" },
+    items: [
+      { title: "Product Intern", url: "https://example.com/product", source: "indeed", posted_at: "2026-08-31" },
+    ],
+  }, { now });
+
+  assert.equal(feed.source_status.indeed.status, "ok");
+  assert.equal(feed.source_feed_urls.indeed, "https://in.indeed.com/jobs");
+});
