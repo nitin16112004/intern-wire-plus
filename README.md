@@ -24,7 +24,8 @@ The interface uses a dark career-dashboard visual system with animated aurora li
 - Track applications across `To apply`, `Applied`, `Interview` and `Offer`
 - Open a detailed job panel before visiting the original source
 - Persist saved roles and tracker stages in browser storage
-- Refresh LinkedIn, Indeed, Naukri and public job APIs automatically every eight hours
+- Refresh LinkedIn, Simplify and five public job APIs automatically every eight hours
+- Open one-click live searches on Indeed India and Naukri
 - Keep the last healthy snapshot when one source is temporarily blocked
 - Deduplicate listings and remove closed, invalid or 30-day-old roles
 - Fall back to the last bundled snapshot if a live refresh is unavailable
@@ -129,7 +130,7 @@ Each listing follows this shape:
 ```ts
 type Job = {
   id?: string | number;
-  source: "linkedin" | "indeed" | "naukri" | "himalayas" | "arbeitnow" | "remotive" | string;
+  source: "linkedin" | "simplify" | "himalayas" | "arbeitnow" | "remotive" | "remoteok" | "jobicy" | string;
   title: string;
   company?: string | null;
   location?: string | null;
@@ -148,13 +149,16 @@ The `Refresh internship feed` workflow runs every eight hours and can also be st
 | Source | Integration | Coverage |
 | --- | --- | --- |
 | LinkedIn + curated feed | The Intern Wire public snapshot | India-focused internships |
-| Indeed India | Public search-result page parser | India internships and freshers |
-| Naukri | Public job-search response | India internships and fresher roles |
+| Simplify / Pitt CSC | Public active-listings JSON | Direct ATS internships |
 | Himalayas | Official public JSON API | Remote internships open to India |
 | Arbeitnow | Official public JSON API | European ATS and early-career roles |
 | Remotive | Official public JSON API | International remote internships |
+| Remote OK | Public JSON feed | International remote early-career roles |
+| Jobicy | Public JSON API | International remote early-career roles |
+| Indeed India | One-click live source search | India internships and freshers |
+| Naukri | One-click live source search | India internships and fresher roles |
 
-Indeed and Naukri can throttle automated requests or change their public result format. Each adapter therefore fails independently: a temporary block keeps that source's last healthy, still-unexpired records while the remaining sources continue refreshing. `JOBS_SOURCE_IDS` can restrict enabled adapters, and `NAUKRI_NKPARAM` can be supplied as a repository secret if Naukri requires its current public-client parameter.
+Indeed and Naukri do not provide a stable, credential-free search API for this deployment and block many automated datacenter requests. The interface therefore opens their current live search pages instead of silently mirroring incomplete data. Their optional adapters can be enabled with authorized `INDEED_API_KEY` or `NAUKRI_NKPARAM` values. Every automated adapter fails independently: a temporary outage keeps that source's last healthy, still-unexpired records while the remaining sources continue refreshing. `JOBS_SOURCE_IDS` can restrict enabled adapters.
 
 The production Worker serves the refreshed file from this repository and re-applies the expiry rules on every response. If the live file cannot be reached, it uses the last bundled snapshot. This means an expired listing disappears at request time even if a scheduled run is delayed. An external source can close a role before its age limit without exposing a machine-readable status, so applicants should still confirm availability on the original page.
 
@@ -182,7 +186,7 @@ The project builds to a Cloudflare Workers-compatible artifact. The included `.o
 
 ## Acknowledgements
 
-The product concept was informed by [The Intern Wire](https://github.com/imajij/intern-wire), an open internship aggregation project. Multi-source adapters use the public interfaces exposed by Indeed, Naukri, Himalayas, Arbeitnow and Remotive; each listing remains attributed and links back to its original source. InternWire+ uses an independently built React interface and extends the concept with a shortlist, application tracker and redesigned experience.
+The product concept was informed by [The Intern Wire](https://github.com/imajij/intern-wire), an open internship aggregation project. Multi-source adapters use public feeds from Simplify, Himalayas, Arbeitnow, Remotive, Remote OK and Jobicy; each listing remains attributed and links back to its original source. InternWire+ uses an independently built React interface and extends the concept with a shortlist, application tracker and redesigned experience.
 
 Job titles, company names and outbound links in the bundled data snapshot belong to their respective sources. Always verify eligibility and listing validity on the original page before applying.
 
