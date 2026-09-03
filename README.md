@@ -2,7 +2,7 @@
 
 > A premium internship discovery and application-tracking workspace built for students and fresh graduates.
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-InternWire%2B-7c5cff?style=for-the-badge)](https://intern-wire-plus.patelpavan7757.chatgpt.site)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-InternWire%2B-7c5cff?style=for-the-badge)](https://intern-wire-plus.vercel.app/)
 [![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
@@ -13,7 +13,7 @@ InternWire+ turns a large internship feed into a focused job-search workflow. Us
 
 The interface uses a dark career-dashboard visual system with animated aurora lighting, a live career-pulse graphic, responsive job cards and accessible reduced-motion behavior.
 
-**Live application:** [intern-wire-plus.patelpavan7757.chatgpt.site](https://intern-wire-plus.patelpavan7757.chatgpt.site)
+**Live application:** [intern-wire-plus.vercel.app](https://intern-wire-plus.vercel.app/)
 
 ## Features
 
