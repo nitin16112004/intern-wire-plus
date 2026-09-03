@@ -1,0 +1,8 @@
+.openai
+.wrangler
+build
+db
+dist
+drizzle
+examples
+worker
