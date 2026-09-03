@@ -40,15 +40,18 @@ type Feed = {
 type TrackerStatus = "To apply" | "Applied" | "Interview" | "Offer";
 
 const TRACKER_STATUSES: TrackerStatus[] = ["To apply", "Applied", "Interview", "Offer"];
-const SOURCE_ORDER = ["linkedin", "indeed", "naukri", "himalayas", "arbeitnow", "remotive", "linkedin-post", "manual", "twitter"];
+const SOURCE_ORDER = ["linkedin", "simplify", "himalayas", "arbeitnow", "remotive", "remoteok", "jobicy", "linkedin-post", "manual", "twitter"];
 const SOURCE_LABELS: Record<string, string> = {
   linkedin: "LinkedIn",
   "linkedin-post": "LinkedIn post",
   indeed: "Indeed",
   naukri: "Naukri",
+  simplify: "Simplify",
   himalayas: "Himalayas",
   arbeitnow: "Arbeitnow",
   remotive: "Remotive",
+  remoteok: "Remote OK",
+  jobicy: "Jobicy",
   manual: "Editor pick",
   twitter: "X post",
 };
@@ -324,7 +327,12 @@ export default function Home() {
                 {[["all", "All sources"], ...sources.map((value) => [value, `${sourceLabel(value)} (${feed?.by_source[value] ?? 0})`])].map(([value, label]) => (
                   <button key={value} onClick={() => updateFilter(setSource, value)} className={`source-chip rounded-full border px-3 py-1.5 text-xs font-semibold transition ${source === value ? "is-active border-cyan-300/30 bg-cyan-300/15 text-cyan-200" : "border-white/10 bg-white/[.03] text-muted-foreground hover:border-cyan-300/30 hover:text-white"}`}>{label}</button>
                 ))}
-                {(activeFilterCount > 0 || query) && <button onClick={clearFilters} className="ml-auto text-xs font-semibold text-primary hover:underline">Reset filters</button>}
+                <span className="ml-auto flex flex-wrap items-center gap-2 text-xs font-semibold">
+                  <span className="text-muted-foreground">Live search:</span>
+                  <a href="https://in.indeed.com/jobs?q=intern&l=India&sort=date" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Indeed <ExternalLink className="inline size-3" /></a>
+                  <a href="https://www.naukri.com/internship-jobs" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Naukri <ExternalLink className="inline size-3" /></a>
+                  {(activeFilterCount > 0 || query) && <button onClick={clearFilters} className="ml-1 text-primary hover:underline">Reset filters</button>}
+                </span>
               </div>
             </div>
 
